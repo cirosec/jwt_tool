@@ -280,6 +280,15 @@ def json_escape(s):
         # not escaping \" as it is already encoded by the json library, also not encoding tabstopp, newline etc, as they are also already encoded.
         return s
 
+def json_canonicalize(s):
+    headDict, paylDict, sig, contents = validateToken(jwt)
+    paylB64 = base64.urlsafe_b64encode(json_escape(json.dumps(paylDict,separators=(",",":"))).encode()).decode('UTF-8').strip("=")
+    headB64 = base64.urlsafe_b64encode(json_escape(json.dumps(headDict,separators=(",",":"))).encode()).decode('UTF-8').strip("=")
+    return headB64 + "." + paylB64 + "." + sig
+
+def check_canonicalization(s) -> bool:
+    return (s == json_canonicalize(s))
+
 def setLog(jwt, genTime, logID, modulename, targetURL, additional):
     logLine = genTime+" | "+modulename+" | "+targetURL+" | "+additional
     with open(logFilename, 'a') as logFile:
@@ -2046,6 +2055,10 @@ if __name__ == '__main__':
     else:
         parser.print_usage()
         cprintc("No JWT provided", "red")
+        exit(1)
+    if not check_canonicalization(findJWT):
+        cprintc("Issue in canonicalization of JWT. Try --encodeslashes or report to https://github.com/ticarpi/jwt_tool/issues/48.", "red")
+        cprintc("Canonicalized JWT: "+json_canonicalize(findJWT)+"\n", "red")
         exit(1)
     if args.mode:
         if args.mode not in ['pb','er', 'cc', 'at']:
